@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电商网站 - 完整版</title>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+        }
+
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary) !important;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .product-card {
+            transition: all 0.3s;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            height: 100%;
+        }
+
+            .product-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            }
+
+        .cart-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 0.7rem;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .rating-stars {
+            color: #ffc107;
+        }
+
+        .comment-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .page-enter-active {
+            animation: slideIn 0.3s;
+        }
+
+        .page-leave-active {
+            animation: slideOut 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+        }
+
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s;
+        }
+
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+
+        .comment-images img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 导航栏 -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+            <div class="container">
+                <a class="navbar-brand" href="#" @click="goTo('home')">
+                    <i class="fas fa-shopping-bag me-2"></i>Vue电商
+                </a>
+
+                <div class="navbar-nav ms-auto align-items-center">
+                    <a class="nav-link" href="#" @click="goTo('home')">首页</a>
+                    <a class="nav-link" href="#" @click="goTo('products')">所有商品</a>
+
+                    <!-- 购物车 -->
+                    <a class="nav-link position-relative mx-3" href="#" @click="goTo('cart')">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span v-if="cartTotal > 0" class="cart-badge badge bg-danger">{{ cartTotal }}</span>
+                    </a>
+
+                    <!-- 用户区域 -->
+                    <div class="nav-item dropdown" v-if="user">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-bs-toggle="dropdown">
+                            <img :src="user.avatar" class="user-avatar me-2">
+                            {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="#" @click="goTo('profile')">
+                                    <i class="fas fa-user me-2"></i>个人中心
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" @click="goTo('my-reviews')">
+                                    <i class="fas fa-comment me-2"></i>我的评价
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#" @click="logout">
+                                    <i class="fas fa-sign-out-alt me-2"></i>退出登录
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- 登录/注册按钮 -->
+                    <div v-else>
+                        <button class="btn btn-outline-primary me-2" @click="goTo('login')">登录</button>
+                        <button class="btn btn-primary" @click="goTo('register')">注册</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <div class="container mt-4">
+            <transition name="page" mode="out-in">
+                <!-- 首页 -->
+                <div v-if="currentPage === 'home'" key="home">
+                    <div class="jumbotron bg-gradient p-5 rounded-3 mb-4 text-white"
+                         style="background: linear-gradient(135deg, var(--primary), var(--secondary));">
+                        <h1 class="display-5">欢迎来到电商平台</h1>
+                        <p class="lead">发现心仪好物，享受购物乐趣</p>
+                        <button class="btn btn-light btn-lg" @click="goTo('products')">
+                            <i class="fas fa-shopping-bag me-2"></i>开始购物
+                        </button>
+                    </div>
+
+                    <h2 class="mb-4">🔥 热门推荐</h2>
+                    <div class="row">
+                        <div v-for="product in featuredProducts" :key="product.id" class="col-md-3 mb-4">
+                            <product-card :product="product"
+                                          @add-to-cart="addToCart"
+                                          @view-detail="viewProductDetail">
+                            </product-card>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 商品列表页 -->
+                <div v-else-if="currentPage === 'products'" key="products">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2>所有商品</h2>
+                        <div class="d-flex">
+                            <input type="text" class="form-control me-2" placeholder="搜索商品..."
+                                   v-model="searchKeyword" @input="searchProducts">
+                            <select class="form-select" v-model="selectedCategory" @change="filterByCategory">
+                                <option value="">所有分类</option>
+                                <option v-for="category in categories" :value="category">{{ category }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div v-if="loading" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+
+                    <div v-else class="row">
+                        <div v-for="product in filteredProducts" :key="product.id" class="col-md-3 mb-4">
+                            <product-card :product="product"
+                                          @add-to-cart="addToCart"
+                                          @view-detail="viewProductDetail">
+                            </product-card>
+                        </div>
+                    </div>
+
+                    <div v-if="!loading && filteredProducts.length === 0" class="text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h4>没有找到相关商品</h4>
+                    </div>
+                </div>
+
+                <!-- 商品详情页 -->
+                <div v-else-if="currentPage === 'product-detail'" key="product-detail">
+                    <div v-if="currentProduct">
+                        <!-- 返回按钮 -->
+                        <button class="btn btn-outline-secondary mb-4" @click="goTo('products')">
+                            <i class="fas fa-arrow-left me-2"></i>返回商品列表
+                        </button>
+
+                        <!-- 商品详情 -->
+                        <div class="card mb-4">
+                            <div class="row g-0">
+                                <div class="col-md-5">
+                                    <img :src="currentProduct.images?.[0] || 'https://picsum.photos/500/500'"
+                                         class="img-fluid rounded-start" style="height: 400px; object-fit: cover;">
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="card-body">
+                                        <h2 class="card-title">{{ currentProduct.name }}</h2>
+                                        <div class="mb-3">
+                                            <span class="rating-stars">
+                                                <i class="fas fa-star" v-for="n in 5" :key="n"></i>
+                                            </span>
+                                            <span class="text-muted ms-2">({{ currentProduct.reviewCount || 0 }}条评价)</span>
+                                        </div>
+                                        <p class="card-text">{{ currentProduct.description }}</p>
+                                        <div class="mb-3">
+                                            <span class="badge bg-secondary me-2">{{ currentProduct.category }}</span>
+                                            <span class="text-muted">库存: {{ currentProduct.stock || 0 }}</span>
+                                        </div>
+                                        <h3 class="text-danger mb-4">¥{{ currentProduct.price }}</h3>
+                                        <div class="d-flex">
+                                            <button class="btn btn-primary me-3" @click="addToCart(currentProduct)">
+                                                <i class="fas fa-cart-plus me-2"></i>加入购物车
+                                            </button>
+                                            <button class="btn btn-success" @click="buyNow(currentProduct)">
+                                                <i class="fas fa-bolt me-2"></i>立即购买
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 评论区域 -->
+                        <div class="card">
+                            <div class="card-header bg-white">
+                                <ul class="nav nav-tabs card-header-tabs">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" href="#" @click.prevent="activeCommentTab = 'all'">
+                                            全部评价 ({{ currentProduct.reviewCount || 0 }})
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#" @click.prevent="activeCommentTab = 'add'">
+                                            <i class="fas fa-edit me-1"></i>我要评价
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="card-body">
+                                <!-- 添加评价 -->
+                                <div v-if="activeCommentTab === 'add'" class="mb-5">
+                                    <h4 class="mb-4">发表评价</h4>
+
+                                    <div v-if="!user">
+                                        <div class="alert alert-info">
+                                            请先<a href="#" @click.prevent="goTo('login')" class="alert-link">登录</a>后发表评价
+                                        </div>
+                                    </div>
+
+                                    <div v-else>
+                                        <!-- 评分 -->
+                                        <div class="mb-4">
+                                            <label class="form-label">评分</label>
+                                            <div class="rating-input">
+                                                <i v-for="n in 5" :key="n"
+                                                   class="fas fa-star fa-2x me-2"
+                                                   :class="{'text-warning': n <= newReview.rating, 'text-muted': n > newReview.rating}"
+                                                   @click="newReview.rating = n"
+                                                   style="cursor: pointer;"></i>
+                                                <span class="ms-3">{{ newReview.rating }}分</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 评论内容 -->
+                                        <div class="mb-4">
+                                            <label class="form-label">评价内容</label>
+                                            <textarea class="form-control" v-model="newReview.content"
+                                                      rows="4" placeholder="请写下您的使用体验..."
+                                                      maxlength="500"></textarea>
+                                            <div class="text-end text-muted mt-1">
+                                                {{ newReview.content.length }}/500
+                                            </div>
+                                        </div>
+
+                                        <!-- 上传图片 -->
+                                        <div class="mb-4">
+                                            <label class="form-label">上传图片 (最多3张)</label>
+                                            <div class="d-flex align-items-center">
+                                                <div v-for="(img, index) in newReview.images" :key="index" class="me-2">
+                                                    <img :src="img" class="rounded" style="width: 80px; height: 80px; object-fit: cover;">
+                                                    <button class="btn btn-sm btn-danger position-absolute"
+                                                            style="margin-top: -80px; margin-left: -10px;"
+                                                            @click="removeReviewImage(index)">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+
+                                                <div v-if="newReview.images.length < 3">
+                                                    <label class="btn btn-outline-secondary" style="width: 80px; height: 80px;">
+                                                        <i class="fas fa-plus fa-2x"></i>
+                                                        <input type="file" accept="image/*" multiple
+                                                               @change="handleReviewImageUpload"
+                                                               style="display: none;">
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 提交按钮 -->
+                                        <div class="d-flex justify-content-end">
+                                            <button class="btn btn-secondary me-2" @click="activeCommentTab = 'all'">
+                                                取消
+                                            </button>
+                                            <button class="btn btn-primary" @click="submitReview" :disabled="!newReview.rating">
+                                                <i class="fas fa-paper-plane me-2"></i>发表评价
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 评价列表 -->
+                                <div v-else>
+                                    <!-- 评价统计 -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-4">
+                                            <div class="text-center p-3 border rounded">
+                                                <h2 class="text-warning mb-0">{{ currentProduct.rating || 0 }}</h2>
+                                                <div class="rating-stars">
+                                                    <i class="fas fa-star" v-for="n in 5" :key="n"></i>
+                                                </div>
+                                                <p class="text-muted mb-0">综合评分</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <div v-for="n in 5" :key="n" class="d-flex align-items-center mb-2">
+                                                <span class="me-2">{{ 6-n }}星</span>
+                                                <div class="progress flex-grow-1" style="height: 10px;">
+                                                    <div class="progress-bar bg-warning"
+                                                         :style="{width: getRatingPercentage(6-n) + '%'}"></div>
+                                                </div>
+                                                <span class="ms-2 text-muted">{{ getRatingCount(6-n) }}人</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 评价筛选 -->
+                                    <div class="d-flex mb-4">
+                                        <button class="btn btn-outline-secondary me-2"
+                                                :class="{'active': reviewFilter === 'all'}"
+                                                @click="reviewFilter = 'all'">
+                                            全部
+                                        </button>
+                                        <button class="btn btn-outline-secondary me-2"
+                                                :class="{'active': reviewFilter === '5'}"
+                                                @click="reviewFilter = '5'">
+                                            <i class="fas fa-star text-warning"></i> 5星
+                                        </button>
+                                        <button class="btn btn-outline-secondary me-2"
+                                                :class="{'active': reviewFilter === '4'}"
+                                                @click="reviewFilter = '4'">
+                                            <i class="fas fa-star text-warning"></i> 4星
+                                        </button>
+                                        <button class="btn btn-outline-secondary"
+                                                :class="{'active': reviewFilter === '3'}"
+                                                @click="reviewFilter = '3'">
+                                            <i class="fas fa-star text-warning"></i> 3星及以下
+                                        </button>
+                                    </div>
+
+                                    <!-- 评价列表 -->
+                                    <div v-if="filteredReviews.length === 0" class="text-center py-5">
+                                        <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                                        <h5>暂无评价</h5>
+                                        <p class="text-muted">成为第一个评价的人吧</p>
+                                        <button class="btn btn-primary" @click="activeCommentTab = 'add'">
+                                            我要评价
+                                        </button>
+                                    </div>
+
+                                    <div v-else>
+                                        <div v-for="review in filteredReviews" :key="review.id" class="border-bottom pb-4 mb-4">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div class="d-flex align-items-center">
+                                                    <img :src="review.userAvatar" class="comment-avatar me-3">
+                                                    <div>
+                                                        <h6 class="mb-1">{{ review.userName }}</h6>
+                                                        <div class="rating-stars">
+                                                            <i class="fas fa-star" v-for="n in review.rating" :key="n"></i>
+                                                            <i class="far fa-star" v-for="n in 5-review.rating" :key="'empty'+n"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
+                                            </div>
+
+                                            <p class="mb-3">{{ review.content }}</p>
+
+                                            <!-- 评论图片 -->
+                                            <div v-if="review.images && review.images.length > 0" class="comment-images mb-3">
+                                                <img v-for="(img, index) in review.images" :key="index"
+                                                     :src="img" @click="viewImage(img)">
+                                            </div>
+
+                                            <!-- 回复 -->
+                                            <div v-if="review.reply" class="alert alert-light border">
+                                                <div class="d-flex">
+                                                    <span class="fw-bold me-2">商家回复:</span>
+                                                    <span>{{ review.reply }}</span>
+                                                </div>
+                                                <small class="text-muted">{{ formatDate(review.repliedAt) }}</small>
+                                            </div>
+                                        </div>
+
+                                        <!-- 分页 -->
+                                        <div class="d-flex justify-content-center">
+                                            <nav>
+                                                <ul class="pagination">
+                                                    <li class="page-item" :class="{disabled: reviewPage === 1}">
+                                                        <a class="page-link" href="#" @click.prevent="reviewPage--">上一页</a>
+                                                    </li>
+                                                    <li class="page-item" v-for="page in reviewPages" :key="page"
+                                                        :class="{active: page === reviewPage}">
+                                                        <a class="page-link" href="#" @click.prevent="reviewPage = page">{{ page }}</a>
+                                                    </li>
+                                                    <li class="page-item" :class="{disabled: reviewPage === reviewPages}">
+                                                        <a class="page-link" href="#" @click.prevent="reviewPage++">下一页</a>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 购物车页 -->
+                <div v-else-if="currentPage === 'cart'" key="cart">
+                    <h2 class="mb-4">🛒 我的购物车</h2>
+
+                    <div v-if="cart.length === 0" class="text-center py-5">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <h4>购物车是空的</h4>
+                        <p class="text-muted mb-4">快去挑选心仪的商品吧</p>
+                        <button class="btn btn-primary" @click="goTo('products')">
+                            <i class="fas fa-shopping-bag me-2"></i>去购物
+                        </button>
+                    </div>
+
+                    <div v-else>
+                        <div v-for="(item, index) in cart" :key="index" class="card mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        <img :src="item.image" class="img-fluid rounded" style="height: 80px; object-fit: cover;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5 class="mb-1">{{ item.name }}</h5>
+                                        <p class="text-muted mb-0">¥{{ item.price }}</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group" style="width: 120px;">
+                                            <button class="btn btn-outline-secondary" @click="updateQuantity(index, -1)">-</button>
+                                            <input type="text" class="form-control text-center" :value="item.quantity" readonly>
+                                            <button class="btn btn-outline-secondary" @click="updateQuantity(index, 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <h5 class="text-danger mb-0">¥{{ item.price * item.quantity }}</h5>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button class="btn btn-danger btn-sm" @click="removeFromCart(index)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4 class="mb-0">总计: ¥{{ cartTotalPrice }}</h4>
+                                        <small class="text-muted">共 {{ cartTotal }} 件商品</small>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-secondary me-2" @click="goTo('products')">继续购物</button>
+                                        <button class="btn btn-success" @click="checkout" :disabled="!user">
+                                            <i class="fas fa-credit-card me-2"></i>{{ user ? '去结算' : '请先登录' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 我的评价页 -->
+                <div v-else-if="currentPage === 'my-reviews'" key="my-reviews">
+                    <h2 class="mb-4">📝 我的评价</h2>
+
+                    <div v-if="!user">
+                        <div class="alert alert-info">
+                            请先<a href="#" @click.prevent="goTo('login')" class="alert-link">登录</a>查看评价
+                        </div>
+                    </div>
+
+                    <div v-else-if="userReviews.length === 0" class="text-center py-5">
+                        <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                        <h4>暂无评价</h4>
+                        <p class="text-muted mb-4">您还没有发表过任何评价</p>
+                        <button class="btn btn-primary" @click="goTo('products')">
+                            <i class="fas fa-shopping-bag me-2"></i>去购物并评价
+                        </button>
+                    </div>
+
+                    <div v-else>
+                        <div v-for="review in userReviews" :key="review.id" class="card mb-3">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-2">
+                                        <img :src="review.productImage" class="img-fluid rounded"
+                                             style="height: 100px; object-fit: cover;">
+                                    </div>
+                                    <div class="col-md-10">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h5>{{ review.productName }}</h5>
+                                                <div class="rating-stars mb-2">
+                                                    <i class="fas fa-star" v-for="n in review.rating" :key="n"></i>
+                                                    <i class="far fa-star" v-for="n in 5-review.rating" :key="'empty'+n"></i>
+                                                </div>
+                                                <p class="mb-2">{{ review.content }}</p>
+                                                <div v-if="review.images && review.images.length > 0" class="comment-images">
+                                                    <img v-for="(img, index) in review.images" :key="index"
+                                                         :src="img" @click="viewImage(img)">
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <small class="text-muted d-block">{{ formatDate(review.createdAt) }}</small>
+                                                <button class="btn btn-sm btn-outline-danger mt-2"
+                                                        @click="deleteReview(review.id)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- 商家回复 -->
+                                        <div v-if="review.reply" class="alert alert-light border mt-3">
+                                            <div class="d-flex">
+                                                <span class="fw-bold me-2">商家回复:</span>
+                                                <span>{{ review.reply }}</span>
+                                            </div>
+                                            <small class="text-muted">{{ formatDate(review.repliedAt) }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 登录页 -->
+                <div v-else-if="currentPage === 'login'" key="login">
+                    <login-form @login-success="handleLoginSuccess"></login-form>
+                </div>
+
+                <!-- 注册页 -->
+                <div v-else-if="currentPage === 'register'" key="register">
+                    <register-form @register-success="handleRegisterSuccess"></register-form>
+                </div>
+
+                <!-- 个人中心 -->
+                <div v-else-if="currentPage === 'profile'" key="profile">
+                    <user-profile :user="user"></user-profile>
+                </div>
+            </transition>
+        </div>
+
+        <!-- 图片查看模态框 -->
+        <div class="modal fade" id="imageModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img :src="viewingImage" class="modal-image">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div class="toast-container">
+            <div v-if="toast.show" class="toast show" role="alert">
+                <div class="toast-header" :class="`bg-${toast.type}`">
+                    <strong class="me-auto text-white">{{ toast.title }}</strong>
+                    <button type="button" class="btn-close btn-close-white" @click="toast.show = false"></button>
+                </div>
+                <div class="toast-body">
+                    {{ toast.message }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 组件模板 -->
+    <script type="text/x-template" id="product-card-template">
+        <div class="card product-card h-100">
+            <img :src="product.images?.[0] || 'https://picsum.photos/300/200'"
+                 class="card-img-top" style="height: 200px; object-fit: cover; cursor: pointer;"
+                 @click="$emit('view-detail', product)">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title" style="cursor: pointer;" @click="$emit('view-detail', product)">
+                    {{ product.name }}
+                </h5>
+                <p class="card-text text-muted flex-grow-1" style="font-size: 0.9rem;">
+                    {{ product.description || '暂无描述' }}
+                </p>
+                <div class="mt-auto">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-danger fw-bold">¥{{ product.price }}</span>
+                        <span class="badge bg-secondary">{{ product.category }}</span>
+                    </div>
+                    <div class="rating-stars mb-2">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="far fa-star"></i>
+                        <small class="text-muted ms-2">({{ product.reviewCount || 0 }})</small>
+                    </div>
+                    <button class="btn btn-primary w-100" @click="$emit('add-to-cart', product)">
+                        <i class="fas fa-cart-plus me-2"></i>加入购物车
+                    </button>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="login-form-template">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">用户登录</h3>
+
+                        <form @submit.prevent="handleSubmit">
+                            <div class="mb-3">
+                                <label class="form-label">邮箱地址</label>
+                                <input type="email" class="form-control" v-model="form.email"
+                                       placeholder="test@example.com" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" v-model="form.password"
+                                       value="123456" required>
+                            </div>
+
+                            <div class="d-grid mb-3">
+                                <button type="submit" class="btn btn-primary" :disabled="loading">
+                                    <span v-if="loading">
+                                        <span class="spinner-border spinner-border-sm me-2"></span>登录中...
+                                    </span>
+                                    <span v-else>登录</span>
+                                </button>
+                            </div>
+
+                            <div class="text-center">
+                                <p class="text-muted">
+                                    还没有账号？
+                                    <a href="#" class="text-primary" @click.prevent="$emit('switch-to-register')">立即注册</a>
+                                </p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="register-form-template">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">用户注册</h3>
+
+                        <form @submit.prevent="handleSubmit">
+                            <div class="mb-3">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-control" v-model="form.username"
+                                       placeholder="请输入用户名" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">邮箱地址</label>
+                                <input type="email" class="form-control" v-model="form.email"
+                                       placeholder="test@example.com" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" v-model="form.password"
+                                       placeholder="至少6位字符" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">确认密码</label>
+                                <input type="password" class="form-control" v-model="form.confirmPassword"
+                                       placeholder="再次输入密码" required>
+                            </div>
+
+                            <div class="d-grid mb-3">
+                                <button type="submit" class="btn btn-primary" :disabled="loading">
+                                    <span v-if="loading">
+                                        <span class="spinner-border spinner-border-sm me-2"></span>注册中...
+                                    </span>
+                                    <span v-else>注册</span>
+                                </button>
+                            </div>
+
+                            <div class="text-center">
+                                <p class="text-muted">
+                                    已有账号？
+                                    <a href="#" class="text-primary" @click.prevent="$emit('switch-to-login')">立即登录</a>
+                                </p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="user-profile-template">
+        <div>
+            <h2 class="mb-4">👤 个人中心</h2>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <img :src="user.avatar" class="rounded-circle mb-3"
+                                 style="width: 120px; height: 120px; object-fit: cover;">
+                            <h4>{{ user.username }}</h4>
+                            <p class="text-muted">{{ user.email }}</p>
+                            <div class="mt-4">
+                                <p class="mb-2">评价数量: {{ user.reviewCount || 0 }}</p>
+                                <p class="mb-2">订单数量: {{ user.orderCount || 0 }}</p>
+                                <p class="mb-0">注册时间: {{ formatDate(user.createdAt) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card mb-3">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">最近评价</h5>
+                        </div>
+                        <div class="card-body">
+                            <div v-if="user.reviews && user.reviews.length > 0">
+                                <div v-for="review in user.reviews.slice(0, 3)" :key="review.id" class="mb-3 pb-3 border-bottom">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>{{ review.productName }}</strong>
+                                        <div class="rating-stars">
+                                            <i class="fas fa-star" v-for="n in review.rating" :key="n"></i>
+                                            <i class="far fa-star" v-for="n in 5-review.rating" :key="'empty'+n"></i>
+                                        </div>
+                                    </div>
+                                    <p class="mb-0 text-truncate">{{ review.content }}</p>
+                                    <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
+                                </div>
+                            </div>
+                            <div v-else class="text-center py-3">
+                                <p class="text-muted mb-0">暂无评价记录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script>
+        const { createApp, ref, computed, reactive, onMounted, watch } = Vue;
+
+        // 组件定义
+        const ProductCard = {
+            template: '#product-card-template',
+            props: ['product'],
+            emits: ['add-to-cart', 'view-detail']
+        };
+
+        const LoginForm = {
+            template: '#login-form-template',
+            emits: ['login-success', 'switch-to-register'],
+            setup(props, { emit }) {
+                const form = reactive({
+                    email: 'test@example.com',
+                    password: '123456'
+                });
+                const loading = ref(false);
+
+                function handleSubmit() {
+                    if (!form.email || !form.password) {
+                        return;
+                    }
+
+                    loading.value = true;
+
+                    // 模拟登录
+                    setTimeout(() => {
+                        const user = {
+                            id: 'user_' + Date.now(),
+                            username: form.email.split('@')[0],
+                            email: form.email,
+                            avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
+                            createdAt: new Date().toISOString(),
+                            reviewCount: 0,
+                            orderCount: 0
+                        };
+
+                        emit('login-success', user);
+                        loading.value = false;
+                    }, 1000);
+                }
+
+                return { form, loading, handleSubmit };
+            }
+        };
+
+        const RegisterForm = {
+            template: '#register-form-template',
+            emits: ['register-success', 'switch-to-login'],
+            setup(props, { emit }) {
+                const form = reactive({
+                    username: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: ''
+                });
+                const loading = ref(false);
+
+                function handleSubmit() {
+                    if (!form.username || !form.email || !form.password) {
+                        return;
+                    }
+
+                    if (form.password.length < 6) {
+                        alert('密码至少6位字符');
+                        return;
+                    }
+
+                    if (form.password !== form.confirmPassword) {
+                        alert('两次输入的密码不一致');
+                        return;
+                    }
+
+                    loading.value = true;
+
+                    // 模拟注册
+                    setTimeout(() => {
+                        const user = {
+                            id: 'user_' + Date.now(),
+                            username: form.username,
+                            email: form.email,
+                            avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
+                            createdAt: new Date().toISOString(),
+                            reviewCount: 0,
+                            orderCount: 0
+                        };
+
+                        emit('register-success', user);
+                        loading.value = false;
+                    }, 1000);
+                }
+
+                return { form, loading, handleSubmit };
+            }
+        };
+
+        const UserProfile = {
+            template: '#user-profile-template',
+            props: ['user'],
+            setup() {
+                function formatDate(dateString) {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('zh-CN');
+                }
+
+                return { formatDate };
+            }
+        };
+
+        // 主应用
+        createApp({
+            components: {
+                ProductCard,
+                LoginForm,
+                RegisterForm,
+                UserProfile
+            },
+            setup() {
+                // ========== 响应式状态 ==========
+                const currentPage = ref('home');
+                const user = ref(JSON.parse(localStorage.getItem('vue_eshop_user')) || null);
+                const products = ref([]);
+                const cart = ref(JSON.parse(localStorage.getItem('vue_eshop_cart')) || []);
+                const orders = ref(JSON.parse(localStorage.getItem('vue_eshop_orders')) || []);
+                const reviews = ref(JSON.parse(localStorage.getItem('vue_eshop_reviews')) || []);
+                const loading = ref(false);
+
+                // 当前查看的商品
+                const currentProduct = ref(null);
+                const activeCommentTab = ref('all');
+                const reviewFilter = ref('all');
+                const reviewPage = ref(1);
+                const reviewsPerPage = 5;
+
+                // 新评价
+                const newReview = reactive({
+                    productId: '',
+                    rating: 0,
+                    content: '',
+                    images: []
+                });
+
+                // 搜索和筛选
+                const searchKeyword = ref('');
+                const selectedCategory = ref('');
+                const categories = ref(['手机', '电脑', '家电', '数码', '服饰', '平板', '相机', '游戏']);
+
+                // 图片查看
+                const viewingImage = ref('');
+
+                // 提示消息
+                const toast = reactive({
+                    show: false,
+                    type: 'success',
+                    title: '',
+                    message: ''
+                });
+
+                // ========== 计算属性 ==========
+                const cartTotal = computed(() => {
+                    return cart.value.reduce((total, item) => total + item.quantity, 0);
+                });
+
+                const cartTotalPrice = computed(() => {
+                    return cart.value.reduce((total, item) => total + (item.price * item.quantity), 0);
+                });
+
+                const featuredProducts = computed(() => {
+                    return products.value.slice(0, 4);
+                });
+
+                const filteredProducts = computed(() => {
+                    let filtered = [...products.value];
+
+                    if (searchKeyword.value) {
+                        const keyword = searchKeyword.value.toLowerCase();
+                        filtered = filtered.filter(p =>
+                            p.name.toLowerCase().includes(keyword) ||
+                            p.description?.toLowerCase().includes(keyword)
+                        );
+                    }
+
+                    if (selectedCategory.value) {
+                        filtered = filtered.filter(p => p.category === selectedCategory.value);
+                    }
+
+                    return filtered;
+                });
+
+                // 商品评价
+                const productReviews = computed(() => {
+                    if (!currentProduct.value) return [];
+                    return reviews.value.filter(r => r.productId === currentProduct.value.id);
+                });
+
+                const filteredReviews = computed(() => {
+                    let filtered = [...productReviews.value];
+
+                    // 按评分筛选
+                    if (reviewFilter.value !== 'all') {
+                        const rating = parseInt(reviewFilter.value);
+                        if (rating === 3) {
+                            filtered = filtered.filter(r => r.rating <= 3);
+                        } else {
+                            filtered = filtered.filter(r => r.rating === rating);
+                        }
+                    }
+
+                    // 分页
+                    const start = (reviewPage.value - 1) * reviewsPerPage;
+                    const end = start + reviewsPerPage;
+                    return filtered.slice(start, end);
+                });
+
+                const reviewPages = computed(() => {
+                    const total = productReviews.value.length;
+                    return Math.ceil(total / reviewsPerPage);
+                });
+
+                // 用户的评价
+                const userReviews = computed(() => {
+                    if (!user.value) return [];
+                    return reviews.value.filter(r => r.userId === user.value.id);
+                });
+
+                // ========== 方法 ==========
+                // 显示提示
+                function showToast(message, type = 'success', title = '') {
+                    toast.type = type;
+                    toast.title = title || (type === 'success' ? '成功' : type === 'error' ? '错误' : '提示');
+                    toast.message = message;
+                    toast.show = true;
+
+                    setTimeout(() => {
+                        toast.show = false;
+                    }, 3000);
+                }
+
+                // 页面导航
+                function goTo(page) {
+                    if (page === 'profile' || page === 'my-reviews') {
+                        if (!user.value) {
+                            showToast('请先登录', 'warning');
+                            currentPage.value = 'login';
+                            return;
+                        }
+                    }
+                    currentPage.value = page;
+                }
+
+                // 用户认证
+                function handleLoginSuccess(userData) {
+                    user.value = userData;
+                    localStorage.setItem('vue_eshop_user', JSON.stringify(userData));
+                    showToast('登录成功', 'success');
+                    currentPage.value = 'home';
+                }
+
+                function handleRegisterSuccess(userData) {
+                    user.value = userData;
+                    localStorage.setItem('vue_eshop_user', JSON.stringify(userData));
+                    showToast('注册成功！已自动登录', 'success');
+                    currentPage.value = 'home';
+                }
+
+                function logout() {
+                    if (confirm('确定要退出登录吗？')) {
+                        user.value = null;
+                        localStorage.removeItem('vue_eshop_user');
+                        showToast('已退出登录', 'info');
+                        currentPage.value = 'home';
+                    }
+                }
+
+                // 商品相关
+                async function loadProducts() {
+                    loading.value = true;
+
+                    try {
+                        // 这里应该调用Supabase API
+                        // 为简化演示，使用模拟数据
+                        const mockProducts = [
+                            {
+                                id: '1',
+                                name: 'iPhone 15 Pro',
+                                price: 8999,
+                                description: '最新款苹果手机，A17 Pro芯片，钛金属边框，性能卓越',
+                                category: '手机',
+                                images: ['https://picsum.photos/300/200?random=1'],
+                                stock: 50,
+                                rating: 4.8,
+                                reviewCount: 128
+                            },
+                            {
+                                id: '2',
+                                name: 'MacBook Air M2',
+                                price: 9999,
+                                description: '轻薄笔记本电脑，13.6英寸Liquid视网膜显示屏，18小时续航',
+                                category: '电脑',
+                                images: ['https://picsum.photos/300/200?random=2'],
+                                stock: 30,
+                                rating: 4.7,
+                                reviewCount: 89
+                            },
+                            {
+                                id: '3',
+                                name: '小米电视 65英寸',
+                                price: 3999,
+                                description: '4K超高清全面屏，MEMC运动补偿，小爱同学智能语音控制',
+                                category: '家电',
+                                images: ['https://picsum.photos/300/200?random=3'],
+                                stock: 100,
+                                rating: 4.5,
+                                reviewCount: 256
+                            },
+                            {
+                                id: '4',
+                                name: '索尼降噪耳机',
+                                price: 899,
+                                description: 'WH-1000XM5 无线降噪耳机，AI智能降噪，30小时续航',
+                                category: '数码',
+                                images: ['https://picsum.photos/300/200?random=4'],
+                                stock: 80,
+                                rating: 4.6,
+                                reviewCount: 156
+                            }
+                        ];
+
+                        products.value = mockProducts;
+
+                    } catch (error) {
+                        showToast('加载商品失败: ' + error.message, 'error');
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                function searchProducts() {
+                    // 搜索逻辑已通过计算属性实现
+                }
+
+                function filterByCategory() {
+                    // 筛选逻辑已通过计算属性实现
+                }
+
+                function viewProductDetail(product) {
+                    currentProduct.value = product;
+                    currentPage.value = 'product-detail';
+                    activeCommentTab.value = 'all';
+                    reviewPage.value = 1;
+
+                    // 重置新评价表单
+                    newReview.productId = product.id;
+                    newReview.rating = 0;
+                    newReview.content = '';
+                    newReview.images = [];
+                }
+
+                function buyNow(product) {
+                    if (!user.value) {
+                        showToast('请先登录', 'warning');
+                        currentPage.value = 'login';
+                        return;
+                    }
+
+                    addToCart(product);
+                    goTo('cart');
+                }
+
+                // 购物车相关
+                function addToCart(product) {
+                    const existingItem = cart.value.find(item => item.id === product.id);
+
+                    if (existingItem) {
+                        existingItem.quantity++;
+                    } else {
+                        cart.value.push({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            quantity: 1,
+                            image: product.images?.[0] || 'https://picsum.photos/300/200'
+                        });
+                    }
+
+                    saveCart();
+                    showToast(`"${product.name}" 已加入购物车`, 'success');
+                }
+
+                function updateQuantity(index, change) {
+                    cart.value[index].quantity += change;
+
+                    if (cart.value[index].quantity <= 0) {
+                        cart.value.splice(index, 1);
+                    }
+
+                    saveCart();
+                }
+
+                function removeFromCart(index) {
+                    const itemName = cart.value[index].name;
+                    cart.value.splice(index, 1);
+                    saveCart();
+                    showToast(`"${itemName}" 已从购物车移除`, 'info');
+                }
+
+                function saveCart() {
+                    localStorage.setItem('vue_eshop_cart', JSON.stringify(cart.value));
+                }
+
+                function checkout() {
+                    if (!user.value) {
+                        showToast('请先登录', 'warning');
+                        currentPage.value = 'login';
+                        return;
+                    }
+
+                    if (cart.value.length === 0) {
+                        showToast('购物车是空的', 'error');
+                        return;
+                    }
+
+                    const order = {
+                        id: 'order_' + Date.now(),
+                        orderNumber: 'ORD' + Date.now(),
+                        totalAmount: cartTotalPrice.value,
+                        status: 'pending',
+                        items: [...cart.value],
+                        createdAt: new Date().toISOString()
+                    };
+
+                    orders.value.unshift(order);
+                    localStorage.setItem('vue_eshop_orders', JSON.stringify(orders.value));
+
+                    // 清空购物车
+                    cart.value = [];
+                    saveCart();
+
+                    showToast(`订单创建成功！订单号: ${order.orderNumber}`, 'success');
+                    currentPage.value = 'home';
+                }
+
+                // 评价系统
+                function getRatingPercentage(rating) {
+                    const total = productReviews.value.length;
+                    if (total === 0) return 0;
+
+                    const count = productReviews.value.filter(r => r.rating === rating).length;
+                    return (count / total) * 100;
+                }
+
+                function getRatingCount(rating) {
+                    return productReviews.value.filter(r => r.rating === rating).length;
+                }
+
+                function handleReviewImageUpload(event) {
+                    const files = event.target.files;
+                    const remainingSlots = 3 - newReview.images.length;
+
+                    for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
+                        const file = files[i];
+                        const reader = new FileReader();
+
+                        reader.onload = (e) => {
+                            newReview.images.push(e.target.result);
+                        };
+
+                        reader.readAsDataURL(file);
+                    }
+                }
+
+                function removeReviewImage(index) {
+                    newReview.images.splice(index, 1);
+                }
+
+                function submitReview() {
+                    if (!user.value) {
+                        showToast('请先登录', 'warning');
+                        goTo('login');
+                        return;
+                    }
+
+                    if (!newReview.rating) {
+                        showToast('请选择评分', 'error');
+                        return;
+                    }
+
+                    if (!newReview.content.trim()) {
+                        showToast('请输入评价内容', 'error');
+                        return;
+                    }
+
+                    const review = {
+                        id: 'review_' + Date.now(),
+                        productId: currentProduct.value.id,
+                        productName: currentProduct.value.name,
+                        productImage: currentProduct.value.images?.[0],
+                        userId: user.value.id,
+                        userName: user.value.username,
+                        userAvatar: user.value.avatar,
+                        rating: newReview.rating,
+                        content: newReview.content.trim(),
+                        images: [...newReview.images],
+                        createdAt: new Date().toISOString(),
+                        reply: '',
+                        repliedAt: ''
+                    };
+
+                    // 添加评价
+                    reviews.value.unshift(review);
+                    localStorage.setItem('vue_eshop_reviews', JSON.stringify(reviews.value));
+
+                    // 更新用户评价数量
+                    if (user.value) {
+                        user.value.reviewCount = (user.value.reviewCount || 0) + 1;
+                        localStorage.setItem('vue_eshop_user', JSON.stringify(user.value));
+                    }
+
+                    // 更新商品评价统计
+                    const productIndex = products.value.findIndex(p => p.id === currentProduct.value.id);
+                    if (productIndex !== -1) {
+                        const product = products.value[productIndex];
+                        product.reviewCount = (product.reviewCount || 0) + 1;
+
+                        // 重新计算平均评分
+                        const productReviews = reviews.value.filter(r => r.productId === product.id);
+                        if (productReviews.length > 0) {
+                            const totalRating = productReviews.reduce((sum, r) => sum + r.rating, 0);
+                            product.rating = Math.round((totalRating / productReviews.length) * 10) / 10;
+                        }
+                    }
+
+                    // 重置表单
+                    newReview.rating = 0;
+                    newReview.content = '';
+                    newReview.images = [];
+
+                    // 切换标签页
+                    activeCommentTab.value = 'all';
+
+                    showToast('评价发表成功！', 'success');
+                }
+
+                function deleteReview(reviewId) {
+                    if (confirm('确定要删除这条评价吗？')) {
+                        const index = reviews.value.findIndex(r => r.id === reviewId);
+                        if (index !== -1) {
+                            reviews.value.splice(index, 1);
+                            localStorage.setItem('vue_eshop_reviews', JSON.stringify(reviews.value));
+
+                            // 更新用户评价数量
+                            if (user.value) {
+                                user.value.reviewCount = Math.max((user.value.reviewCount || 0) - 1, 0);
+                                localStorage.setItem('vue_eshop_user', JSON.stringify(user.value));
+                            }
+
+                            showToast('评价已删除', 'info');
+                        }
+                    }
+                }
+
+                function viewImage(imageUrl) {
+                    viewingImage.value = imageUrl;
+                    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+                    modal.show();
+                }
+
+                // 工具函数
+                function formatDate(dateString) {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN');
+                }
+
+                // ========== 生命周期 ==========
+                onMounted(() => {
+                    loadProducts();
+                });
+
+                // ========== 监听器 ==========
+                watch(reviewPage, () => {
+                    // 滚动到顶部
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+
+                // ========== 暴露给模板 ==========
+                return {
+                    // 状态
+                    currentPage,
+                    user,
+                    products,
+                    cart,
+                    orders,
+                    reviews,
+                    loading,
+                    currentProduct,
+                    activeCommentTab,
+                    reviewFilter,
+                    reviewPage,
+                    newReview,
+                    searchKeyword,
+                    selectedCategory,
+                    categories,
+                    viewingImage,
+                    toast,
+
+                    // 计算属性
+                    cartTotal,
+                    cartTotalPrice,
+                    featuredProducts,
+                    filteredProducts,
+                    productReviews,
+                    filteredReviews,
+                    reviewPages,
+                    userReviews,
+
+                    // 方法
+                    goTo,
+                    handleLoginSuccess,
+                    handleRegisterSuccess,
+                    logout,
+                    loadProducts,
+                    searchProducts,
+                    filterByCategory,
+                    viewProductDetail,
+                    buyNow,
+                    addToCart,
+                    updateQuantity,
+                    removeFromCart,
+                    checkout,
+                    getRatingPercentage,
+                    getRatingCount,
+                    handleReviewImageUpload,
+                    removeReviewImage,
+                    submitReview,
+                    deleteReview,
+                    viewImage,
+                    formatDate,
+                    showToast
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
